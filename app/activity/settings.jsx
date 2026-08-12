@@ -14,8 +14,8 @@ import {
 } from "react-native";
 import PandaBanner from "../../components/PandaBanner";
 import { COLORS } from "../../constants/theme";
-import { getState } from "../../database/db";
 import {
+  getDeviceLabel,
   getPandaStatus,
   hasCallLogPermission,
   hasContactsPermission,
@@ -28,7 +28,13 @@ import {
   setPandaTestMode,
 } from "../../services/nativeTracker";
 import { refreshTracker } from "../../services/refreshService";
-import { getSyncConfig, saveSyncConfig, syncUnsyncedData } from "../../services/syncService";
+import {
+  getSyncConfig,
+  getWeeklySyncStatus,
+  saveProfileConfig,
+  saveSyncConfig,
+  syncUnsyncedData,
+} from "../../services/syncService";
 
 const PANDA_STATES = [
   "happy",
@@ -43,6 +49,10 @@ const PANDA_STATES = [
   "missed",
 ];
 
+function readableTime(value) {
+  return value ? new Date(value).toLocaleString() : "Never";
+}
+
 export default function TrackerSettingsScreen() {
   const [usageAccess, setUsageAccess] = useState(false);
   const [callAccess, setCallAccess] = useState(false);
@@ -50,32 +60,40 @@ export default function TrackerSettingsScreen() {
   const [notificationAccess, setNotificationAccess] = useState(false);
   const [apiUrl, setApiUrl] = useState("");
   const [token, setToken] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [deviceName, setDeviceName] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [testMode, setTestMode] = useState(false);
   const [pandaState, setPandaState] = useState("happy");
-  const [lastSync, setLastSync] = useState(null);
+  const [weeklySync, setWeeklySync] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [usage, calls, contacts, notifications, syncConfig, panda, syncAt] = await Promise.all([
+    const [usage, calls, contacts, notifications, syncConfig, panda, syncStatus, nativeDeviceLabel] = await Promise.all([
       hasUsageAccess(),
       hasCallLogPermission(),
       hasContactsPermission(),
       hasNotificationListenerAccess(),
       getSyncConfig(),
       getPandaStatus(),
-      getState("last_sync_at", null),
+      getWeeklySyncStatus(),
+      getDeviceLabel().catch(() => "Android device"),
     ]);
+
     setUsageAccess(Boolean(usage));
     setCallAccess(Boolean(calls));
     setContactsAccess(Boolean(contacts));
     setNotificationAccess(Boolean(notifications));
     setApiUrl(syncConfig.apiUrl || "");
     setToken(syncConfig.token || "");
+    setUserName(syncConfig.userName || "");
+    setUserId(syncConfig.userId || "");
+    setDeviceName(syncConfig.deviceName || nativeDeviceLabel || "Android device");
     setDeviceId(syncConfig.deviceId || "");
     setTestMode(Boolean(panda?.testMode));
     setPandaState(panda?.state || "happy");
-    setLastSync(syncAt ? Number(syncAt) : null);
+    setWeeklySync(syncStatus);
   }, []);
 
   useFocusEffect(
@@ -112,11 +130,32 @@ export default function TrackerSettingsScreen() {
     setContactsAccess(result === PermissionsAndroid.RESULTS.GRANTED);
   }
 
-  async function saveMongoSettings() {
+  async function saveProfile() {
+    setBusy(true);
+    try {
+      const profile = await saveProfileConfig(userName, deviceName);
+      setUserId(profile.userId);
+      setDeviceId(profile.deviceId);
+      Alert.alert(
+        "Profile saved",
+        "Use the same profile name on another device if it belongs to the same person. Use a different profile name for a different tester."
+      );
+    } catch (error) {
+      Alert.alert("Could not save profile", error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveCloudSettings() {
     setBusy(true);
     try {
       await saveSyncConfig(apiUrl, token);
-      Alert.alert("Saved", "The API URL and private token were saved on this device.");
+      await load();
+      Alert.alert(
+        "Saved",
+        "Vercel API settings were saved. Automatic MongoDB upload runs only once every 7 days; SQLite keeps collecting locally every day."
+      );
     } catch (error) {
       Alert.alert("Could not save", error.message);
     } finally {
@@ -128,11 +167,14 @@ export default function TrackerSettingsScreen() {
     setBusy(true);
     try {
       await refreshTracker({ sync: false });
-      const result = await syncUnsyncedData();
+      const result = await syncUnsyncedData({ force: true });
       if (result.ok) {
-        Alert.alert("Sync complete", result.reason || "SQLite records were synchronized.");
+        Alert.alert(
+          "Manual sync complete",
+          `${result.reason || "SQLite records were synchronized."}\n\nThis manual test resets the next automatic weekly sync to 7 days from now.`
+        );
       } else {
-        Alert.alert("Sync not completed", result.reason || result.error || "Check the API settings.");
+        Alert.alert("Sync not completed", result.reason || result.error || "Check the profile and API settings.");
       }
       await load();
     } catch (error) {
@@ -160,7 +202,7 @@ export default function TrackerSettingsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <PandaBanner
         title="Tracker setup"
-        subtitle="Grant only the permissions you want. SQLite works locally even when cloud sync is not configured."
+        subtitle="SQLite logs locally every day. MongoDB receives a weekly batch through your Vercel API."
       />
 
       {!isNativeTrackerAvailable() ? (
@@ -197,10 +239,41 @@ export default function TrackerSettingsScreen() {
         onPress={openNotificationListenerSettings}
       />
 
-      <Section title="2. MongoDB sync through your API" />
+      <Section title="2. Tester profile & device" />
       <InfoBox
-        title="MongoDB credentials stay off the phone"
-        text="Enter the HTTPS URL of the included Node/Express tracker server. The optional API token is stored with Expo SecureStore."
+        title="Simple multi-device identity"
+        text="Use the same profile name on multiple devices for the same person (for example Anmol). Use a different profile name for another tester. Each installation receives its own private Device ID. For v1.2, keep one tester profile per installation once tracking has started."
+      />
+      <Text style={styles.label}>Profile name</Text>
+      <TextInput
+        style={styles.input}
+        value={userName}
+        onChangeText={setUserName}
+        autoCapitalize="words"
+        autoCorrect={false}
+        placeholder="Anmol"
+        placeholderTextColor={COLORS.grey}
+      />
+      <Text style={styles.label}>Device name</Text>
+      <TextInput
+        style={styles.input}
+        value={deviceName}
+        onChangeText={setDeviceName}
+        autoCapitalize="words"
+        autoCorrect={false}
+        placeholder="Pixel 9"
+        placeholderTextColor={COLORS.grey}
+      />
+      <Text style={styles.helper}>Cloud User ID: {userId || "created after Save profile"}</Text>
+      <Text style={styles.helper}>Installation Device ID: {deviceId || "creating…"}</Text>
+      <Pressable style={styles.primaryButton} onPress={saveProfile} disabled={busy}>
+        <Text style={styles.primaryText}>Save profile</Text>
+      </Pressable>
+
+      <Section title="3. Weekly MongoDB sync through Vercel" />
+      <InfoBox
+        title="Vercel-friendly serverless sync"
+        text="Enter the HTTPS URL Vercel gives to tracker-server. The phone keeps raw activity in SQLite and automatically uploads unsynced rows only when the 7-day sync interval is due."
       />
       <Text style={styles.label}>Tracker API URL</Text>
       <TextInput
@@ -209,7 +282,7 @@ export default function TrackerSettingsScreen() {
         onChangeText={setApiUrl}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="https://your-tracker-api.example.com"
+        placeholder="https://fms-tracker.vercel.app"
         placeholderTextColor={COLORS.grey}
       />
       <Text style={styles.label}>API token</Text>
@@ -220,19 +293,21 @@ export default function TrackerSettingsScreen() {
         autoCapitalize="none"
         autoCorrect={false}
         secureTextEntry
-        placeholder="same token as TRACKER_API_TOKEN on server"
+        placeholder="same TRACKER_API_TOKEN as Vercel"
         placeholderTextColor={COLORS.grey}
       />
-      <Text style={styles.helper}>Device ID: {deviceId || "creating…"}</Text>
-      <Text style={styles.helper}>Last sync: {lastSync ? new Date(lastSync).toLocaleString() : "Never"}</Text>
-      <Pressable style={styles.primaryButton} onPress={saveMongoSettings} disabled={busy}>
-        <Text style={styles.primaryText}>Save sync settings</Text>
+      <Text style={styles.helper}>Last successful cloud sync: {readableTime(weeklySync?.lastSuccessfulSyncAt)}</Text>
+      <Text style={styles.helper}>Next automatic sync: {readableTime(weeklySync?.nextSyncAt)}</Text>
+      <Text style={styles.helper}>Weekly status: {weeklySync?.due ? "Due" : "SQLite logging locally; cloud sync not due yet"}</Text>
+      <Pressable style={styles.primaryButton} onPress={saveCloudSettings} disabled={busy}>
+        <Text style={styles.primaryText}>Save Vercel sync settings</Text>
       </Pressable>
       <Pressable style={styles.secondaryButton} onPress={syncNow} disabled={busy}>
-        <Text style={styles.secondaryText}>{busy ? "Working…" : "Collect + sync now"}</Text>
+        <Text style={styles.secondaryText}>{busy ? "Working…" : "Collect + Sync Now (testing only)"}</Text>
       </Pressable>
+      <Text style={styles.helper}>Manual Sync Now bypasses the weekly timer so you can verify Vercel + MongoDB before waiting seven days.</Text>
 
-      <Section title="3. Panda launcher icon" />
+      <Section title="4. Panda launcher icon" />
       <View style={styles.switchRow}>
         <View style={styles.flex}>
           <Text style={styles.rowTitle}>Accelerated test mode</Text>
@@ -318,7 +393,7 @@ const styles = StyleSheet.create({
   primaryButton: { backgroundColor: COLORS.cypress, borderRadius: 13, padding: 13, alignItems: "center", marginTop: 11 },
   primaryText: { color: COLORS.cream, fontWeight: "900" },
   secondaryButton: { backgroundColor: COLORS.cardCream, borderColor: COLORS.royalGreen, borderWidth: 1, borderRadius: 13, padding: 13, alignItems: "center", marginTop: 8 },
-  secondaryText: { color: COLORS.cypress, fontWeight: "900" },
+  secondaryText: { color: COLORS.cypress, fontWeight: "900", textAlign: "center" },
   switchRow: { backgroundColor: COLORS.cardCream, borderColor: COLORS.line, borderWidth: 1, borderRadius: 15, padding: 12, flexDirection: "row", alignItems: "center" },
   pandaGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 9, marginHorizontal: -4 },
   pandaButton: { backgroundColor: COLORS.cardCream, borderColor: COLORS.line, borderWidth: 1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 10, margin: 4 },

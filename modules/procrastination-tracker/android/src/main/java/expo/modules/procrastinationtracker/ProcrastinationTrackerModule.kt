@@ -30,6 +30,14 @@ class ProcrastinationTrackerModule : Module() {
       context().packageName
     }
 
+    AsyncFunction("getDeviceLabel") {
+      val manufacturer = Build.MANUFACTURER.orEmpty().trim().replaceFirstChar {
+        if (it.isLowerCase()) it.titlecase() else it.toString()
+      }
+      val model = Build.MODEL.orEmpty().trim()
+      listOf(manufacturer, model).filter { it.isNotBlank() }.distinct().joinToString(" ")
+    }
+
     AsyncFunction("hasUsageAccess") {
       hasUsageAccess(context())
     }

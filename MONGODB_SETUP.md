@@ -1,43 +1,61 @@
-# MongoDB Atlas setup — French Made Simple Tracker
+# MongoDB Atlas setup — French Made Simple Tracker v1.2
 
-The APK never connects directly to MongoDB. The included `tracker-server/` Node/Express API owns the MongoDB connection and accepts batched syncs from the phone.
+The APK never connects directly to MongoDB. SQLite logs locally; the included Vercel-friendly `tracker-server/` API receives weekly batches.
 
 ## Database
 
-Use this database name:
+Use:
 
 ```text
 fms_tracker
 ```
 
-You do **not** have to manually create documents. The server creates/uses the collections and writes the first documents when it starts/syncs.
+You do **not** need to manually create documents or collections. MongoDB creates them as the first sync writes data, and the API creates the required indexes.
 
 ## Collections
 
 ```text
+users
+devices
 usage_events
 phone_calls
 whatsapp_calls
 french_sessions
-devices
 ```
 
-The server creates unique indexes automatically:
+### `users`
 
-- `usage_events`: `{ deviceId, eventId }`
-- `phone_calls`: `{ deviceId, eventId }`
-- `whatsapp_calls`: `{ deviceId, eventId }`
-- `french_sessions`: `{ deviceId, sessionId }`
-- `devices`: `{ deviceId }`
+One document per tester/profile:
 
-This makes retries idempotent instead of duplicating activity records.
+```json
+{
+  "userId": "anmol",
+  "userName": "Anmol",
+  "lastSyncAt": "MongoDB Date",
+  "createdAt": "MongoDB Date"
+}
+```
 
-## Example document shapes
+### `devices`
+
+One document per APK installation:
+
+```json
+{
+  "deviceId": "device-...",
+  "deviceName": "Pixel 9",
+  "userId": "anmol",
+  "userName": "Anmol",
+  "lastSyncAt": "MongoDB Date",
+  "lastSeenIp": "server-observed IP"
+}
+```
 
 ### `usage_events`
 
 ```json
 {
+  "userId": "anmol",
   "deviceId": "device-...",
   "eventId": "...",
   "packageName": "com.google.android.youtube",
@@ -53,6 +71,7 @@ This makes retries idempotent instead of duplicating activity records.
 
 ```json
 {
+  "userId": "anmol",
   "deviceId": "device-...",
   "eventId": "...",
   "phoneNumberMasked": "***1234",
@@ -65,12 +84,13 @@ This makes retries idempotent instead of duplicating activity records.
 }
 ```
 
-The APK keeps a full regular phone number only in local SQLite. The cloud payload masks it before upload.
+The APK keeps the full regular phone number only in local SQLite. The cloud payload masks it before upload.
 
 ### `whatsapp_calls`
 
 ```json
 {
+  "userId": "anmol",
   "deviceId": "device-...",
   "eventId": "...",
   "packageName": "com.whatsapp",
@@ -89,6 +109,7 @@ The APK keeps a full regular phone number only in local SQLite. The cloud payloa
 
 ```json
 {
+  "userId": "anmol",
   "deviceId": "device-...",
   "sessionId": "session-...",
   "startedAt": "MongoDB Date",
@@ -98,33 +119,53 @@ The APK keeps a full regular phone number only in local SQLite. The cloud payloa
 }
 ```
 
-### `devices`
+## Indexes created by the API
 
-```json
-{
-  "deviceId": "device-...",
-  "lastSyncAt": "MongoDB Date",
-  "lastSeenIp": "server-observed IP"
-}
-```
+Duplicate protection:
 
-## Atlas steps
+- `usage_events`: `{ deviceId, eventId }` unique
+- `phone_calls`: `{ deviceId, eventId }` unique
+- `whatsapp_calls`: `{ deviceId, eventId }` unique
+- `french_sessions`: `{ deviceId, sessionId }` unique
+- `users`: `{ userId }` unique
+- `devices`: `{ deviceId }` unique
 
-1. Create/open an Atlas cluster.
-2. Create a database user with read/write access to `fms_tracker`.
-3. Configure Atlas Network Access for the server that will run `tracker-server/`.
-4. In `tracker-server/`, copy `.env.example` to `.env`.
-5. Set `MONGODB_URI`, `MONGODB_DB=fms_tracker`, and a long random `TRACKER_API_TOKEN`.
-6. Run `npm install` and `npm start`.
-7. Deploy the server to an HTTPS Node host before syncing from a phone over the internet.
-8. In the APK, open **My Activity → Tracker setup** and enter the public HTTPS server URL plus the same token.
+Analytics indexes are also created on `userId + startedAt` so the future dashboard can combine all devices for a user efficiently.
 
-The server also exposes:
+## Vercel Environment Variables
+
+Configure:
 
 ```text
-GET /health
-POST /api/v1/sync/batch
-GET /api/v1/dashboard/summary?deviceId=YOUR_DEVICE_ID&days=7
+MONGODB_URI
+MONGODB_DB=fms_tracker
+TRACKER_API_TOKEN
 ```
 
-The summary endpoint is included so a future web dashboard can retrieve category totals, top apps, calls, French practice, and procrastination score without querying Atlas directly from the browser.
+See `VERCEL_DEPLOY.md`.
+
+## Dashboard-ready endpoints
+
+List profiles:
+
+```text
+GET /api/v1/users
+```
+
+List devices for a profile:
+
+```text
+GET /api/v1/devices?userId=anmol
+```
+
+Aggregate all devices belonging to a profile:
+
+```text
+GET /api/v1/dashboard/summary?userId=anmol&days=7
+```
+
+Or one specific installation:
+
+```text
+GET /api/v1/dashboard/summary?userId=anmol&deviceId=device-...&days=7
+```

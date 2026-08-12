@@ -1,45 +1,8 @@
-What goes in TRACKER_API_TOKEN?
-
-Put a long random secret string there.
-
-For example, do not literally use:
-
-TRACKER_API_TOKEN=PUT_A_LONG_RANDOM_SECRET_HERE
-
-Generate one on your Mac with:
-
-openssl rand -hex 32
-
-It will give you something similar to:
-
-a8c991496df4d53a105c753a0fe591e2e13fdf6e0a08a299d8e34f6cd0cb782e
-
-Then put that exact value into:
-
-fms/tracker-server/.env
-
-
-So run:
-
-cd fms
-npm install
-
-and then:
-
-cd tracker-server
-npm install
-
-Or from the outer fms folder, you can do both without changing folders:
-
-npm install
-npm --prefix tracker-server install
-npm --prefix tracker-server start
-
 # French Made Simple
 
 French Made Simple is a beginner-friendly React Native / Expo Router app for learning French using local data.
 
-The app uses local JSON/JS data and Expo Speech for French text-to-speech. There is no backend, no API call, no login, no storage, and no advanced features.
+The French-learning content still uses local JSON/JS data and Expo Speech. The optional Android procrastination tracker adds local SQLite storage, native Android usage/call tracking, dynamic Panda launcher icons, and a small Vercel-hosted Express API for weekly MongoDB backup/analytics sync.
 
 ## Main Idea
 
@@ -287,14 +250,35 @@ The practice screen also includes a simple progress bar so the user can see how 
 
 ---
 
-## Personal Procrastination Tracker (v1.1)
+## Personal Procrastination Tracker (v1.2)
 
-This project now includes an optional Android-only local-first procrastination tracker, regular-call history, best-effort WhatsApp-call detection, a SQLite activity dashboard, optional MongoDB sync through an included Express API, and time-based Panda launcher icons.
+The Android-only tracker now includes app usage, regular-call history, best-effort WhatsApp-call detection, SQLite history, a local activity dashboard, time-based Panda launcher icons, and **weekly** MongoDB synchronization through the included **Vercel-ready Express API**.
 
-See **`TRACKER_SETUP.md`** before building/testing these native features.
+For 2–3 test devices, the tracker uses a simple profile + device identity:
+
+- same profile name on multiple devices = same tester/user
+- different profile name = different tester/user
+- every APK installation still has its own random `deviceId`
+
+This is intentionally a lightweight testing identity, not password authentication.
+
+See **`TRACKER_SETUP.md`**, **`VERCEL_DEPLOY.md`**, and **`MONGODB_SETUP.md`** before building/testing these native features.
 
 Build the shareable APK with:
 
 ```bash
 ./build-apk.sh
 ```
+
+### Vercel + weekly cloud sync
+
+For backend deployment, import the Git repository into Vercel and set the project **Root Directory** to `tracker-server`. Configure `MONGODB_URI`, `MONGODB_DB=fms_tracker`, and `TRACKER_API_TOKEN` as Vercel Environment Variables. See `VERCEL_DEPLOY.md`.
+
+For local server testing only:
+
+```bash
+npm --prefix tracker-server install
+npm --prefix tracker-server start
+```
+
+Normal tracker behavior is local-first: Android activity is imported into SQLite whenever the tracker refreshes, while automatic cloud upload is gated to a seven-day interval. The manual Sync Now button is intended for setup/testing.

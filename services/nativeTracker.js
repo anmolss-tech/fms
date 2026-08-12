@@ -12,6 +12,12 @@ export async function getOwnPackageName() {
   return NativeTracker.getPackageName();
 }
 
+export async function getDeviceLabel() {
+  if (!NativeTracker) return "Android device";
+  const value = await NativeTracker.getDeviceLabel();
+  return String(value || "Android device");
+}
+
 export async function hasUsageAccess() {
   if (!NativeTracker) return false;
   return NativeTracker.hasUsageAccess();

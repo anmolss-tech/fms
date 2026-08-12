@@ -18,6 +18,7 @@ import {
   hasUsageAccess,
   isNativeTrackerAvailable,
 } from "../../services/nativeTracker";
+import { getSyncConfig, getWeeklySyncStatus } from "../../services/syncService";
 import { categoryLabel, formatClock, formatDuration } from "../../utils/activityFormat";
 
 export default function ActivityScreen() {
@@ -29,11 +30,13 @@ export default function ActivityScreen() {
   const [whatsappCalls, setWhatsappCalls] = useState([]);
   const [permissions, setPermissions] = useState({ usage: false, calls: false, whatsapp: false });
   const [panda, setPanda] = useState({ state: "happy", testMode: false });
+  const [profile, setProfile] = useState({ userName: "", deviceName: "" });
+  const [weeklySync, setWeeklySync] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
       await initDatabase();
-      const [nextSummary, apps, calls, waCalls, usage, callAccess, waAccess, pandaStatus] = await Promise.all([
+      const [nextSummary, apps, calls, waCalls, usage, callAccess, waAccess, pandaStatus, syncConfig, syncStatus] = await Promise.all([
         getTodaySummary(),
         getTopApps(),
         getRecentPhoneCalls(),
@@ -42,6 +45,8 @@ export default function ActivityScreen() {
         hasCallLogPermission(),
         hasNotificationListenerAccess(),
         getPandaStatus(),
+        getSyncConfig(),
+        getWeeklySyncStatus(),
       ]);
       setSummary(nextSummary);
       setTopApps(apps);
@@ -49,6 +54,8 @@ export default function ActivityScreen() {
       setWhatsappCalls(waCalls);
       setPermissions({ usage, calls: callAccess, whatsapp: waAccess });
       setPanda(pandaStatus);
+      setProfile({ userName: syncConfig.userName || "", deviceName: syncConfig.deviceName || "" });
+      setWeeklySync(syncStatus);
     } catch (error) {
       console.log("Activity dashboard load failed:", error);
     } finally {
@@ -65,7 +72,7 @@ export default function ActivityScreen() {
   async function refreshNow() {
     setRefreshing(true);
     try {
-      await refreshTracker();
+      await refreshTracker({ sync: false });
       await loadData();
     } finally {
       setRefreshing(false);
@@ -86,7 +93,7 @@ export default function ActivityScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <PandaBanner
         title="Where did my time go?"
-        subtitle="Your activity stays in SQLite first, then syncs only when you configure your private API."
+        subtitle="SQLite records activity locally every day. Vercel sends unsynced history to MongoDB only on the weekly schedule."
       />
 
       {!isNativeTrackerAvailable() ? (
@@ -168,11 +175,18 @@ export default function ActivityScreen() {
         <StatusLine label="Call Log" enabled={permissions.calls} />
         <StatusLine label="Call Notification Access" enabled={permissions.whatsapp} />
         <StatusLine label="Panda icon" enabled value={panda?.state || "happy"} />
+        <StatusLine label="Profile" enabled={Boolean(profile.userName)} value={profile.userName || "Not set"} />
+        <StatusLine label="Device" enabled={Boolean(profile.deviceName)} value={profile.deviceName || "Not set"} />
+        <StatusLine
+          label="Weekly cloud sync"
+          enabled
+          value={weeklySync?.due ? "Due" : (weeklySync?.nextSyncAt ? new Date(weeklySync.nextSyncAt).toLocaleDateString() : "Not configured")}
+        />
         <Text style={styles.smallNote}>* WhatsApp and call-notification fallback detection are best effort and can vary by app/Android version.</Text>
       </View>
 
       <Pressable style={styles.primaryButton} onPress={refreshNow} disabled={refreshing}>
-        <Text style={styles.primaryText}>{refreshing ? "Refreshing…" : "Refresh now"}</Text>
+        <Text style={styles.primaryText}>{refreshing ? "Refreshing…" : "Refresh local data"}</Text>
       </Pressable>
 
       <Pressable style={styles.secondaryButton} onPress={() => router.push("/activity/categories")}>
@@ -180,7 +194,7 @@ export default function ActivityScreen() {
       </Pressable>
 
       <Pressable style={styles.secondaryButton} onPress={() => router.push("/activity/settings")}>
-        <Text style={styles.secondaryText}>Permissions, MongoDB sync & Panda test</Text>
+        <Text style={styles.secondaryText}>Profile, Vercel weekly sync & Panda test</Text>
       </Pressable>
     </ScrollView>
   );
