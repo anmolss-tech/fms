@@ -1,0 +1,86 @@
+{
+  "collection": "French Made Simple — CCube and Song Sources",
+  "description": "Index file that records each generated JSON card file with its video title and YouTube link.",
+  "schema": {
+    "id": "stable app/source id",
+    "type": "source category",
+    "title": "video or song title",
+    "youtubeUrl": "source YouTube URL",
+    "sourceDocx": "original DOCX transcript file, when available",
+    "jsonFile": "generated JSON card file name",
+    "cardsFile": "relative path used during generation",
+    "cardCount": "number of cards in the JSON file"
+  },
+  "sources": [
+    {
+      "id": "ccube_78",
+      "type": "ccube_youtube_transcript",
+      "title": "Décrivez votre Journée",
+      "youtubeUrl": "https://www.youtube.com/watch?v=HhHjxXG6slo&t=4s",
+      "sourceDocx": "78_ eased.docx",
+      "jsonFile": "78_eased.json",
+      "cardsFile": "ccube_by_video_json/78_eased.json",
+      "cardCount": 27
+    },
+    {
+      "id": "ccube_79",
+      "type": "ccube_youtube_transcript",
+      "title": "Family Activities and Routines",
+      "youtubeUrl": "https://www.youtube.com/watch?v=7XMq9q27514",
+      "sourceDocx": "79_ eased.docx",
+      "jsonFile": "79_eased.json",
+      "cardsFile": "ccube_by_video_json/79_eased.json",
+      "cardCount": 62
+    },
+    {
+      "id": "ccube_81",
+      "type": "ccube_youtube_transcript",
+      "title": "L’école",
+      "youtubeUrl": "https://www.youtube.com/watch?v=OgFitpV8Ixw",
+      "sourceDocx": "81_ eased.docx",
+      "jsonFile": "81_eased.json",
+      "cardsFile": "ccube_by_video_json/81_eased.json",
+      "cardCount": 54
+    },
+    {
+      "id": "ccube_82",
+      "type": "ccube_youtube_transcript",
+      "title": "Maison hantée et appartement à vendre",
+      "youtubeUrl": "https://www.youtube.com/watch?v=yaBKNzmhUX8&pp=0gcJCd4JAYcqlYzv",
+      "sourceDocx": "82_ Eased.docx",
+      "jsonFile": "82_eased.json",
+      "cardsFile": "ccube_by_video_json/82_eased.json",
+      "cardCount": 102
+    },
+    {
+      "id": "ccube_84",
+      "type": "ccube_youtube_transcript",
+      "title": "Planning Chores at Breakfast / Household Chores",
+      "youtubeUrl": "https://www.youtube.com/watch?v=DD1qzYCYTWk",
+      "sourceDocx": "84_ eased.docx",
+      "jsonFile": "84_eased.json",
+      "cardsFile": "ccube_by_video_json/84_eased.json",
+      "cardCount": 72
+    },
+    {
+      "id": "ccube_115",
+      "type": "ccube_youtube_transcript",
+      "title": "Appartement à louer / Studio Tour",
+      "youtubeUrl": "https://www.youtube.com/watch?v=FSKbWJPhYVo",
+      "sourceDocx": "115_ Eased.docx",
+      "jsonFile": "115_eased.json",
+      "cardsFile": "ccube_by_video_json/115_eased.json",
+      "cardCount": 79
+    },
+    {
+      "id": "song_jusqua_mon_dernier_souffle",
+      "type": "song_pronunciation_cards",
+      "title": "Jusqu’à mon dernier souffle",
+      "youtubeUrl": "https://www.youtube.com/watch?v=LcJxrtURopg",
+      "sourceDocx": null,
+      "jsonFile": "song_jusqua_mon_dernier_souffle_pronunciation_cards.json",
+      "cardsFile": "song_jusqua_mon_dernier_souffle_pronunciation_cards.json",
+      "cardCount": 56
+    }
+  ]
+}

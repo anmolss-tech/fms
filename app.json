@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "French Made Simple",
+    "slug": "french-made-simple",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "scheme": "frenchmadesimple",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFF8E7",
+    "android": {
+      "package": "com.homie.frenchmadesimple"
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#123F35",
+      "barStyle": "light-content"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "./plugins/withProcrastinationTracker"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "802a27d0-d618-4d24-8d75-d23678b178bc"
+      }
+    },
+    "owner": "homieforensicss-team",
+    "icon": "./assets/panda-icons/happy.png"
+  }
+}
